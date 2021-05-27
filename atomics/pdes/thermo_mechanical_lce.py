@@ -1,7 +1,7 @@
 import dolfin as df
 import pygmsh
 
-def get_residual_form(u, v, rho_e, phi_angle, k, alpha, method='RAMP'):
+def get_residual_form(u, v, rho_e, phi_angle, k, alpha, method='RAMP',Th = df.Constant(1.)):
     if method =='SIMP':
         C = rho_e**3
     else:
@@ -17,7 +17,7 @@ def get_residual_form(u, v, rho_e, phi_angle, k, alpha, method='RAMP'):
     mu = E / 2 / (1 + nu) #lame's parameters
 
     # Th = df.Constant(5e1)
-    Th = df.Constant(1.)
+    # Th = df.Constant(1.)
     # Th = df.Constant(5e0)
 
     w_ij = 0.5 * (df.grad(u) + df.grad(u).T)

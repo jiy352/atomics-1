@@ -106,6 +106,7 @@ class KSConstraintsComp(ExplicitComponent):
         dKS_dg = dKS_dsum * dsum_dg
 
         self.dKS_dg = dKS_dg
+        print(out_name, outputs[out_name])
 
     def compute_partials(self, inputs, partials):
         in_name = self.options['in_name']

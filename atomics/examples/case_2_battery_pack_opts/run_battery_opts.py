@@ -19,8 +19,8 @@ from atomics.ksconstraints_comp import KSConstraintsComp
 1. Define constants
 '''
 
-# objective = 'mass'
-objective = 'compliance'
+objective = 'mass'
+# objective = 'compliance'
 # objective = 'mass' or 'compliance'
 
 
@@ -73,7 +73,10 @@ f_l = df.Constant(( 1.e6/AREA_SIDE, 0.))
 f_r = df.Constant((-1.e6/AREA_SIDE, 0.)) 
 f_b = df.Constant(( 0.,  1.e6/AREA_SIDE)) 
 f_t = df.Constant(( 0., -1.e6/AREA_SIDE))
-
+# f_l = df.Constant(( 1.e6/WIDTH, 0.)) 
+# f_r = df.Constant((-1.e6/WIDTH, 0.)) 
+# f_b = df.Constant(( 0.,  1.e6/WIDTH)) 
+# f_t = df.Constant(( 0., -1.e6/WIDTH))
 
 
 # f_l = df.Constant(( 0., 0.)) 
@@ -249,6 +252,7 @@ mixed_fs = df.FunctionSpace(mesh, df.MixedElement([displacement_fe,temperature_f
 mixed_fs.sub(1).dofmap().dofs()
 mixed_function = df.Function(mixed_fs)
 displacements_function,temperature_function = df.split(mixed_function)
+# displacements_function,temperature_function = mixed_function.split()
 
 v,T_hat = df.TestFunctions(mixed_fs)
 
@@ -266,6 +270,7 @@ residual_form = get_residual_form(
 residual_form -=  (df.dot(f_r, v) * dss(10) + df.dot(f_t, v) * dss(14)  + \
                     q*T_hat*dss(5) + q_half*T_hat*dss(6) + q_quart*T_hat*dss(7))
 print("get residual_form-------")
+# print('ssssssss',df.assemble(T_hat*df.dx).get_local())
 pde_problem.add_state('mixed_states', mixed_function, residual_form, 'density')
 
 '''
@@ -313,16 +318,17 @@ I = df.Identity(len(displacements_function))
 # von_Mises = df.sqrt(3./2*df.inner(s, s))
 # von_Mises_form = (1/df.CellVolume(mesh)) * von_Mises * df.TestFunction(density_function_space) * df.dx
 
-T = df.TensorFunctionSpace(mesh, "CG", 1)
+# T = df.TensorFunctionSpace(mesh, "CG", 1)
 # T.vector.set_local()
-
-w_ij = 0.5 * (df.grad(displacements_function) + df.grad(displacements_function).T) - ALPHA * I * temperature_function
+T_00 = df.Constant(20)
+w_ij = 0.5 * (df.grad(displacements_function) + df.grad(displacements_function).T) - C*ALPHA * I * (temperature_function-T_00)
 sigm = lambda_*df.div(displacements_function)* I + 2*mu*w_ij 
 s = sigm - (1./3)*df.tr(sigm)*I 
-# von_Mises = df.tr(s)
-# von_Mises = df.tr(s)
-von_Mises = df.sqrt(3./2*df.inner(s/5e9, s/5e9) )
+scalar_ = 5e8
+# scalar_ = 5e5
+von_Mises = df.sqrt(3./2*df.inner(s/scalar_, s/scalar_) )
 von_Mises_form = (1/df.CellVolume(mesh)) * von_Mises * df.TestFunction(density_function_space) * df.dx
+# von_Mises_form =  von_Mises * df.TestFunction(density_function_space) /volume * df.dx
 pde_problem.add_field_output('von_Mises', von_Mises_form, 'mixed_states', 'density')
 
 x
@@ -440,7 +446,8 @@ comp = KSConstraintsComp(
     shape=(np.array(density_function_space.dofmap().dofs()).size,),
     axis=0,
     # rho=50.,
-    rho=40.,
+    # rho=40.,
+    rho=200.,
 )
 prob.model.add_subsystem('KSConstraintsstress', comp, promotes=['*'])
 
@@ -454,6 +461,8 @@ prob.model.add_design_var('density_unfiltered',upper=1., lower=1e-4)
 if objective == 'mass':
     prob.model.add_objective('avg_density')
     prob.model.add_constraint('t_max', upper=50)
+    prob.model.add_constraint('von_Mises_max', upper=3.)
+    # prob.model.add_constraint('von_Mises_max', upper=1)
     prob.model.add_constraint('density', upper=1.,lower=1.,
                              indices=idx_array, linear=True)
 else:
@@ -474,7 +483,7 @@ else:
 prob.driver = driver = om.pyOptSparseDriver()
 driver.options['optimizer'] = 'SNOPT'
 driver.opt_settings['Verify level'] = 0
-driver.opt_settings['Major iterations limit'] = 10000
+driver.opt_settings['Major iterations limit'] = 1000
 driver.opt_settings['Minor iterations limit'] = 1000000
 driver.opt_settings['Iterations limit'] = 100000000
 driver.opt_settings['Major step limit'] = 2.0
@@ -484,14 +493,14 @@ driver.opt_settings['Major optimality tolerance'] =2.e-10
 
 prob.setup()
 
+# prob.run_model()
 prob.run_driver()
-
-displacements_function_val, temperature_function_val= mixed_function.split()
-'solutions/case_1/cantilever_beam/displacement.pvd'
-#save the solution vector
-df.File('solutions/case_2/battter_pack_{}/displacements.pvd'.format(objective)) << displacements_function_val
-df.File('solutions/case_2/battter_pack_{}/temperature.pvd'.format(objective)) << temperature_function_val
-df.File('solutions/case_2/battter_pack_{}/density.pvd'.format(objective)) << density_function
-stiffness  = df.project(density_function/(1 + 8. * (1. - density_function)), density_function_space) 
-df.File('solutions/case_2/battter_pack_{}/stiffness.pvd'.format(objective)) << stiffness
+if False:
+    displacements_function_val, temperature_function_val= mixed_function.split()
+    #save the solution vector
+    df.File('solutions/case_2/battery_pack_{}_new/displacements.pvd'.format(objective)) << displacements_function_val
+    df.File('solutions/case_2/battery_pack_{}_new/temperature.pvd'.format(objective)) << temperature_function_val
+    df.File('solutions/case_2/battery_pack_{}_new/density.pvd'.format(objective)) << density_function
+    stiffness  = df.project(density_function/(1 + 8. * (1. - density_function)), density_function_space) 
+    df.File('solutions/case_2/battery_pack_{}_new/stiffness.pvd'.format(objective)) << stiffness
 

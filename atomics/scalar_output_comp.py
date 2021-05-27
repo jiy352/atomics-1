@@ -81,6 +81,7 @@ class ScalarOutputsComp(om.ExplicitComponent):
 
 
         outputs[scalar_output_name] = df.assemble(form)
+        print(scalar_output_name,outputs[scalar_output_name])
 
     def compute_partials(self, inputs, partials):
         pde_problem = self.options['pde_problem']

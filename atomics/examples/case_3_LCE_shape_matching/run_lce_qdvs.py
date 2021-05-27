@@ -123,6 +123,8 @@ desired_disp = df.Expression(( "-(1-cos(angle))*x[0]",
 vol = df.assemble(df.Constant(1) *df.dx(domain=mesh))
 e = desired_disp - displacements_function
 norm_form = e**2/vol*df.Constant(1e9)*df.dx(domain=mesh)
+desired_disp_norm_form = desired_disp**2/vol*df.Constant(1e9)*df.dx(domain=mesh)
+disp_norm_form = displacements_function**2/vol*df.Constant(1e9)*df.dx(domain=mesh)
 # norm = df.assemble(e**2/vol*df.dx(domain=mesh))
 pde_problem.add_scalar_output('error_norm', norm_form, 'displacements')
 

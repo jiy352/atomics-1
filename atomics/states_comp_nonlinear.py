@@ -14,7 +14,7 @@ import openmdao.api as om
 from atomics.pde_problem import PDEProblem
 
 # from atomics.pdes.elastic_cantilever_beam import get_residual_form
-from atomics.pdes.hyperelastic_neo_hookean_addtive_test import get_residual_form
+from atomics.pdes.neo_hookean_addtive import get_residual_form
 
 
 
@@ -25,7 +25,7 @@ class StatesComp(om.ImplicitComponent):
     residual form every iteration.
     Parameters
     ----------
-    ``linear_solver`` solver for the total derivatives
+    ``linear_solver_`` solver for the total derivatives
     values=['fenics_direct', 'scipy_splu', 'fenics_krylov', 'petsc_gmres_ilu', 'scipy_cg','petsc_cg_ilu']
 
     ``problem_type`` solver for the FEA problem
@@ -43,8 +43,8 @@ class StatesComp(om.ImplicitComponent):
         self.options.declare('pde_problem', types=PDEProblem)
         self.options.declare('state_name', types=str)
         self.options.declare(
-            'linear_solver', default='scipy_splu', 
-            values=['fenics_direct', 'scipy_splu', 'fenics_krylov', 'petsc_gmres_ilu'],
+            'linear_solver_', default='scipy_splu', 
+            values=['fenics_direct', 'scipy_splu', 'fenics_krylov', 'petsc_gmres_ilu','petsc_cg_ilu'],
         )
         self.options.declare(
             'problem_type', default='nonlinear_problem_load_stepping', 
@@ -155,7 +155,7 @@ class StatesComp(om.ImplicitComponent):
             solver.parameters["snes_solver"]["relative_tolerance"]=5e-13
             solver.parameters["snes_solver"]["absolute_tolerance"]=5e-13
 
-            # solver.parameters["snes_solver"]["linear_solver"]["maximum_iterations"]=1000
+            # solver.parameters["snes_solver"]["linear_solver_"]["maximum_iterations"]=1000
             solver.parameters["snes_solver"]["error_on_nonconvergence"] = False
             solver.solve()
 
@@ -195,7 +195,7 @@ class StatesComp(om.ImplicitComponent):
                 solver.parameters["snes_solver"]["relative_tolerance"]=1e-15
                 solver.parameters["snes_solver"]["absolute_tolerance"]=1e-15
 
-                # solver.parameters["snes_solver"]["linear_solver"]["maximum_iterations"]=1000
+                # solver.parameters["snes_solver"]["linear_solver_"]["maximum_iterations"]=1000
                 solver.parameters["snes_solver"]["error_on_nonconvergence"] = False
                 solver.solve()
 
@@ -221,7 +221,7 @@ class StatesComp(om.ImplicitComponent):
             partials[state_name, argument_name] = dR_dinput.data
 
     def solve_linear(self, d_outputs, d_residuals, mode):
-        linear_solver = self.options['linear_solver']
+        linear_solver_ = self.options['linear_solver_']
         pde_problem = self.options['pde_problem']
         state_name = self.options['state_name']
 
@@ -248,7 +248,7 @@ class StatesComp(om.ImplicitComponent):
             
         A, _ = df.assemble_system(self.derivative_form, - residual_form, pde_problem.bcs_list)
 
-        if linear_solver=='fenics_direct':
+        if linear_solver_=='fenics_direct':
 
             rhs_ = df.Function(state_function.function_space())
             dR = df.Function(state_function.function_space())
@@ -264,7 +264,7 @@ class StatesComp(om.ImplicitComponent):
             df.solve(AT,dR.vector(),rhs_.vector()) 
             d_residuals[state_name] =  dR.vector().get_local()
 
-        elif linear_solver=='scipy_splu':
+        elif linear_solver_=='scipy_splu':
             for bc in pde_problem.bcs_list:
                 bc.apply(A)
             Am = df.as_backend_type(A).mat()
@@ -274,7 +274,7 @@ class StatesComp(om.ImplicitComponent):
             d_residuals[state_name] = lu.solve(d_outputs[state_name],trans='T')
 
 
-        elif linear_solver=='fenics_Krylov':
+        elif linear_solver_=='fenics_Krylov':
 
             rhs_ = df.Function(state_function.function_space())
             dR = df.Function(state_function.function_space())
@@ -295,7 +295,7 @@ class StatesComp(om.ImplicitComponent):
 
             d_residuals[state_name] =  dR.vector().get_local()
 
-        elif linear_solver=='petsc_gmres_ilu':
+        elif linear_solver_=='petsc_gmres_ilu':
             ksp = PETSc.KSP().create() 
             ksp.setType(PETSc.KSP.Type.GMRES)
             ksp.setTolerances(rtol=5e-11)
